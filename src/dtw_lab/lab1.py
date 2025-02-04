@@ -5,6 +5,7 @@ import io
 import requests
 from typing import Literal, Union
 
+
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and preprocess the input DataFrame.
@@ -13,7 +14,21 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: The cleaned and preprocessed DataFrame.
     """
+
+    # Drop nulls
+    df = df.dropna()
+
+    # Drop unuseful columns
+    df = df.drop(columns=["Serial_Number", "Voltage_Cutoff", "Nominal_Voltage"])
+
+    # Remove outliers
+    df = df[(df["Avg_Operating_Temperature"] <= 100)]
+    df = df[(df["Days_Since_Production"] <= 20000)]
+    df = df[(df["Current_Voltage"] >= 0.5) & (df["Current_Voltage"] <= 2)]
+    df = df[df["Battery_Size"] != "9 - Volt"]
+
     return df
+
 
 def read_csv_from_google_drive(file_id: str) -> pd.DataFrame:
     """
@@ -25,10 +40,10 @@ def read_csv_from_google_drive(file_id: str) -> pd.DataFrame:
     Raises:
         ValueError: If the file cannot be accessed or read.
     """
-    download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+    download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
     try:
-        s = requests.get(download_url).content   
-        return pd.read_csv(io.StringIO(s.decode('utf-8')))
+        s = requests.get(download_url).content
+        return pd.read_csv(io.StringIO(s.decode("utf-8")))
     except Exception as e:
         raise ValueError(f"Unable to read CSV file from Google Drive: {str(e)}")
 
@@ -51,59 +66,48 @@ def visualize_data(df: pd.DataFrame) -> None:
         None: Displays a grid of plots visualizing the relationships between the features and 'Charge_Left_Percentage'.
     """
     fig, axs = plt.subplots(3, 1, figsize=(15, 15))
-    features = ['Avg_Operating_Temperature','Days_Since_Production', 'Current_Voltage']
-    target_variable = 'Charge_Left_Percentage'
+    features = ["Avg_Operating_Temperature", "Days_Since_Production", "Current_Voltage"]
+    target_variable = "Charge_Left_Percentage"
     for i, feature in enumerate(features):
         sns.scatterplot(data=df, x=feature, y=target_variable, ax=axs[i])
-        axs[i].set_title(f'Scatter plot of {feature} vs Charge_Left_Percentage')
+        axs[i].set_title(f"Scatter plot of {feature} vs Charge_Left_Percentage")
     plt.tight_layout()
-    plt.savefig('graphs/scatter_plots.png')
+    plt.savefig("graphs/scatter_plots.png")
 
-    features = ['Avg_Operating_Temperature','Days_Since_Production', 'Current_Voltage']
+    features = ["Avg_Operating_Temperature", "Days_Since_Production", "Current_Voltage"]
     fig, axs = plt.subplots(3, 1, figsize=(15, 15))
     for i, feature in enumerate(features):
         sns.boxplot(data=df, x=feature, ax=axs[i])
-        axs[i].set_title(f'Box plot of {feature} vs Charge_Left_Percentage')
+        axs[i].set_title(f"Box plot of {feature} vs Charge_Left_Percentage")
     plt.tight_layout()
-    plt.savefig('graphs/boxplots.png')
+    plt.savefig("graphs/boxplots.png")
 
     ## do the same with frequency histograms
-    features = ['Battery_Size', 'Discharge_Speed', 'Manufacturer']
+    features = ["Battery_Size", "Discharge_Speed", "Manufacturer"]
     fig, axs = plt.subplots(3, 1, figsize=(15, 15))
     for i, feature in enumerate(features):
         sns.histplot(data=df, x=feature, ax=axs[i])
-        axs[i].set_title(f'Frequency histogram of {feature}')
+        axs[i].set_title(f"Frequency histogram of {feature}")
     plt.tight_layout()
-    plt.savefig('graphs/histograms.png')
-
+    plt.savefig("graphs/histograms.png")
 
 
 def encode_categorical_vars(df: pd.DataFrame) -> pd.DataFrame:
-    #One hot encode manufacturer
-    df = pd.get_dummies(df, columns=['Manufacturer'])
+    # One hot encode manufacturer
+    df = pd.get_dummies(df, columns=["Manufacturer"])
 
-    #Map battery size to integer
-    battery_size_map = {
-        'AAA': 1,
-        'AA': 2,
-        'C': 3,
-        'D': 4
-    }
-    df['Battery_Size'] = df['Battery_Size'].map(battery_size_map)
+    # Map battery size to integer
+    battery_size_map = {"AAA": 1, "AA": 2, "C": 3, "D": 4}
+    df["Battery_Size"] = df["Battery_Size"].map(battery_size_map)
 
-    #Map discharge speed to integer
-    battery_size_map = {
-        'Slow': 1,
-        'Medium': 2,
-        'Fast': 3
-    }
-    df['Discharge_Speed'] = df['Discharge_Speed'].map(battery_size_map)
-    return df    
+    # Map discharge speed to integer
+    battery_size_map = {"Slow": 1, "Medium": 2, "Fast": 3}
+    df["Discharge_Speed"] = df["Discharge_Speed"].map(battery_size_map)
+    return df
 
 
 def calculate_statistic(
-    measure: Literal["mean", "median", "mode"],
-    column: pd.Series
+    measure: Literal["mean", "median", "mode"], column: pd.Series
 ) -> Union[float, pd.Series]:
     """
     Calculate the specified statistical measure for a given pandas DataFrame column.
@@ -124,10 +128,6 @@ def calculate_statistic(
         return column.median()
     elif measure == "mode":
         column.mode()[0]
-    
+
     else:
         raise ValueError("Invalid measure. Choose 'mean', 'median', or 'mode'.")
-
-
-
-
